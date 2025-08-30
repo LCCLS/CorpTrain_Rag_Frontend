@@ -1,0 +1,272 @@
+"""
+Streamlit RAG System Frontend
+ChatGPT-like interface for document Q&A
+"""
+import streamlit as st
+from datetime import datetime
+
+from config import settings
+from services.api_client import APIClient
+from components.chat_interface import render_chat_message, render_sources
+import re
+
+# Page configuration
+st.set_page_config(
+    page_title="Corporate Training Assistant",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Simple dark theme CSS
+st.markdown("""
+<style>
+    .main .block-container {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        max-width: 800px;
+    }
+    
+    .stChat > div {
+        padding: 0.5rem;
+    }
+    
+    .user-message {
+        background: #2d3748;
+        color: #ffffff;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 0.5rem 0;
+    }
+    
+    .assistant-message {
+        background: #1a202c;
+        color: #e2e8f0;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 0.5rem 0;
+        border-left: 3px solid #00d4aa;
+    }
+    
+    .error-message {
+        background: #742a2a;
+        color: #ffffff;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 0.5rem 0;
+    }
+    
+    .sources-container {
+        background: #2d3748;
+        padding: 0.5rem;
+        border-radius: 5px;
+        margin-top: 0.5rem;
+        border-left: 3px solid #00d4aa;
+    }
+    
+
+</style>
+""", unsafe_allow_html=True)
+
+def initialize_session_state():
+    """Initialize Streamlit session state variables"""
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "api_client" not in st.session_state:
+        st.session_state.api_client = APIClient(settings.backend_url)
+    if "query_count" not in st.session_state:
+        st.session_state.query_count = 0
+    if "email_provided" not in st.session_state:
+        st.session_state.email_provided = False
+    if "user_email" not in st.session_state:
+        st.session_state.user_email = None
+
+def is_valid_email(email):
+    """Validate email format"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def render_email_modal():
+    """Render the email collection modal"""
+    # Create a prominent warning box
+    st.error("🚫 **Query Limit Reached!**")
+    
+    # Main content area with styling
+    with st.container():
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            padding: 2rem;
+            border-radius: 15px;
+            border: 2px solid #00d4aa;
+            margin: 1rem 0;
+            text-align: center;
+        ">
+            <h2 style="color: #00d4aa; margin-bottom: 1rem;">📧 Continue Your Conversation</h2>
+            <p style="color: #e2e8f0; margin-bottom: 1.5rem; font-size: 1.1rem;">
+                You've reached the free query limit (3/3). Please provide your email address to continue chatting with our AI assistant.
+            </p>
+            <div style="
+                background: #2d3748;
+                color: #e2e8f0;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                font-size: 0.9rem;
+                margin-bottom: 1.5rem;
+                display: inline-block;
+            ">
+                Queries used: 3/3
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Email input section
+        st.markdown("### 📧 Enter Your Email Address")
+        
+        # Email input
+        email = st.text_input(
+            "Email Address",
+            placeholder="Enter your email address",
+            key="email_input",
+            help="We'll use this to track your usage and send you updates"
+        )
+        
+        # Submit button
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button("Continue", key="email_submit", type="primary"):
+                if email and is_valid_email(email):
+                    st.session_state.user_email = email
+                    st.session_state.email_provided = True
+                    st.success("✅ Email saved! You can now continue chatting.")
+                    st.rerun()
+                elif email:
+                    st.error("❌ Please enter a valid email address.")
+                else:
+                    st.error("❌ Please enter your email address.")
+        
+        # Privacy notice
+        st.caption("🔒 Your email is safe with us. We only use it to track usage and send important updates.")
+        
+        # Additional info
+        st.info("💡 After providing your email, you'll have unlimited access to the AI assistant.")
+
+def main():
+    """Main Streamlit application"""
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Simple header
+    st.title("🤖 Corporate Training Assistant")
+    
+    # Show query counter in header
+    remaining_queries = 3 - st.session_state.query_count
+    if not st.session_state.email_provided:
+        st.info(f"📊 Free queries remaining: {remaining_queries}/3")
+    
+    # Check if user has reached the limit
+    if st.session_state.query_count >= 3 and not st.session_state.email_provided:
+        render_email_modal()
+        return  # Stop execution here to show the modal
+    
+    # Simple sidebar with just essential controls
+    with st.sidebar:
+        st.header("Settings")
+        
+        # Backend status
+        st.subheader("Backend Status")
+        health = st.session_state.api_client.check_health()
+        
+        if health["status"] == "healthy":
+            st.success("✅ Backend connected")
+            if "data" in health:
+                data = health["data"]
+                st.info(f"📊 Documents: {data.get('database', {}).get('document_count', 0)}")
+        elif health["status"] == "unreachable":
+            st.error("❌ Cannot reach backend")
+            st.caption(f"URL: {st.session_state.api_client.backend_url}")
+        else:
+            st.warning("⚠️ Backend issues")
+            if "data" in health:
+                data = health["data"]
+                if data.get("database", {}).get("document_count", 0) == 0:
+                    st.info("💡 No documents loaded yet")
+        
+        st.divider()
+        
+        # User info
+        if st.session_state.email_provided:
+            st.subheader("User Info")
+            st.success(f"✅ {st.session_state.user_email}")
+            st.caption("Unlimited queries available")
+        
+        st.divider()
+        
+        # Clear chat
+        if st.button("🗑️ Clear Chat"):
+            st.session_state.messages = []
+            st.session_state.query_count = 0
+            st.session_state.email_provided = False
+            st.session_state.user_email = None
+            st.rerun()
+    
+    # Display chat history
+    for message in st.session_state.messages:
+        render_chat_message(message)
+    
+    # Chat input
+    if prompt := st.chat_input("Ask your question..."):
+        # Increment query counter
+        st.session_state.query_count += 1
+        
+        # Add user message
+        user_message = {
+            "role": "user",
+            "content": prompt,
+            "timestamp": datetime.now()
+        }
+        st.session_state.messages.append(user_message)
+        
+        # Display user message
+        render_chat_message(user_message)
+        
+        # Generate response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    response = st.session_state.api_client.query_documents(
+                        question=prompt,
+                        top_k=5
+                    )
+                    
+                    if response:
+                        st.markdown(response["answer"])
+                        
+                        # Show sources if available
+                        if response.get("sources"):
+                            render_sources(
+                                response["sources"], 
+                                response.get("document_count", 0),
+                                response.get("retrieved_content", [])
+                            )
+                        
+                        # Add to history
+                        assistant_message = {
+                            "role": "assistant",
+                            "content": response["answer"],
+                            "sources": response.get("sources", []),
+                            "document_count": response.get("document_count", 0),
+                            "retrieved_content": response.get("retrieved_content", []),
+                            "timestamp": datetime.now()
+                        }
+                        st.session_state.messages.append(assistant_message)
+                        
+                    else:
+                        st.error("Sorry, I couldn't process your question.")
+                        
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+
+if __name__ == "__main__":
+    main()
