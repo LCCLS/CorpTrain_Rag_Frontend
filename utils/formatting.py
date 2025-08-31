@@ -68,8 +68,8 @@ def format_source_name(source: str) -> str:
     if not source:
         return "Unknown Source"
     
-    # Remove file extensions
-    source = re.sub(r'\.(pdf|txt|docx|doc)$', '', source, flags=re.IGNORECASE)
+    # Remove file extensions (including .md)
+    source = re.sub(r'\.(pdf|txt|docx|doc|md)$', '', source, flags=re.IGNORECASE)
     
     # Replace underscores and hyphens with spaces
     source = re.sub(r'[_-]', ' ', source)
