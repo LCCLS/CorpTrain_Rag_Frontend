@@ -23,6 +23,15 @@ def render_chat_message(message: Dict[str, Any]):
                 st.markdown(f'<div class="error-message">{message["content"]}</div>', 
                           unsafe_allow_html=True)
             else:
+                # Show mode indicator if available
+                if message.get("mode"):
+                    mode_display = {
+                        "knowledge": "📚 Knowledge Mode",
+                        "simulation": "🎭 Simulation Mode", 
+                        "preparation": "📋 Preparation Mode"
+                    }
+                    st.caption(f"Mode: {mode_display.get(message['mode'], message['mode'])}")
+                
                 st.markdown(message["content"])
                 
                 # Show sources if available

@@ -80,6 +80,8 @@ def initialize_session_state():
         st.session_state.email_provided = False
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
+    if "selected_mode" not in st.session_state:
+        st.session_state.selected_mode = "knowledge"
 
 def is_valid_email(email):
     """Validate email format"""
@@ -160,10 +162,20 @@ def main():
     # Simple header
     st.title("🤖 Corporate Training Assistant")
     
-    # Show query counter in header
-    remaining_queries = 3 - st.session_state.query_count
-    if not st.session_state.email_provided:
-        st.info(f"📊 Free queries remaining: {remaining_queries}/3")
+    # Show current mode and query counter in header
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        mode_display = {
+            "knowledge": "📚 Knowledge Mode",
+            "simulation": "🎭 Simulation Mode", 
+            "preparation": "📋 Preparation Mode"
+        }
+        st.info(f"Current Mode: {mode_display.get(st.session_state.selected_mode, st.session_state.selected_mode)}")
+    
+    with col2:
+        remaining_queries = 3 - st.session_state.query_count
+        if not st.session_state.email_provided:
+            st.info(f"📊 Free queries remaining: {remaining_queries}/3")
     
     # Check if user has reached the limit
     if st.session_state.query_count >= 3 and not st.session_state.email_provided:
@@ -192,6 +204,35 @@ def main():
                 data = health["data"]
                 if data.get("database", {}).get("document_count", 0) == 0:
                     st.info("💡 No documents loaded yet")
+        
+        st.divider()
+        
+        # Query Mode Selection
+        st.subheader("Query Mode")
+        mode_options = {
+            "Knowledge": "knowledge",
+            "Simulation": "simulation", 
+            "Preparation": "preparation"
+        }
+        
+        selected_mode_display = st.selectbox(
+            "Select query mode:",
+            options=list(mode_options.keys()),
+            index=list(mode_options.values()).index(st.session_state.selected_mode),
+            help="Choose how the AI should respond to your questions"
+        )
+        
+        # Update session state with the selected mode value
+        st.session_state.selected_mode = mode_options[selected_mode_display]
+        
+        # Display mode description
+        mode_descriptions = {
+            "knowledge": "📚 **Knowledge Mode**: Direct answers based on training materials",
+            "simulation": "🎭 **Simulation Mode**: Practice scenarios and role-playing",
+            "preparation": "📋 **Preparation Mode**: Structured preparation and planning"
+        }
+        
+        st.info(mode_descriptions[st.session_state.selected_mode])
         
         st.divider()
         
@@ -237,7 +278,8 @@ def main():
                 try:
                     response = st.session_state.api_client.query_documents(
                         question=prompt,
-                        top_k=5
+                        top_k=5,
+                        mode=st.session_state.selected_mode
                     )
                     
                     if response:
@@ -255,6 +297,7 @@ def main():
                         assistant_message = {
                             "role": "assistant",
                             "content": response["answer"],
+                            "mode": response.get("mode", st.session_state.selected_mode),
                             "sources": response.get("sources", []),
                             "document_count": response.get("document_count", 0),
                             "retrieved_content": response.get("retrieved_content", []),

@@ -67,20 +67,21 @@ class APIClient:
                 "details": "Unexpected error during health check"
             }
     
-    def query_documents(self, question: str, top_k: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def query_documents(self, question: str, top_k: Optional[int] = None, mode: str = "knowledge") -> Optional[Dict[str, Any]]:
         """
         Query the RAG system with a question
         
         Args:
             question: User's question
             top_k: Number of documents to retrieve (optional)
+            mode: Query mode (simulation, knowledge, preparation)
             
         Returns:
             Response from backend or None if error
         """
         try:
             # Prepare request data
-            request_data = {"question": question}
+            request_data = {"question": question, "mode": mode}
             if top_k is not None:
                 request_data["top_k"] = top_k
             
@@ -114,19 +115,20 @@ class APIClient:
             st.error(f"❌ Unexpected error: {str(e)}")
             return None
     
-    def query_documents_get(self, question: str, top_k: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def query_documents_get(self, question: str, top_k: Optional[int] = None, mode: str = "knowledge") -> Optional[Dict[str, Any]]:
         """
         Query using GET method (alternative)
         
         Args:
             question: User's question
             top_k: Number of documents to retrieve
+            mode: Query mode (simulation, knowledge, preparation)
             
         Returns:
             Response from backend or None if error
         """
         try:
-            params = {"question": question}
+            params = {"question": question, "mode": mode}
             if top_k is not None:
                 params["top_k"] = top_k
             
