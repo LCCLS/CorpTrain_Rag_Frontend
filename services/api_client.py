@@ -67,7 +67,7 @@ class APIClient:
                 "details": "Unexpected error during health check"
             }
     
-    def query_documents(self, question: str, top_k: Optional[int] = None, mode: str = "knowledge") -> Optional[Dict[str, Any]]:
+    def query_documents(self, question: str, top_k: Optional[int] = None, mode: str = "knowledge", session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Query the RAG system with a question
         
@@ -75,6 +75,7 @@ class APIClient:
             question: User's question
             top_k: Number of documents to retrieve (optional)
             mode: Query mode (simulation, knowledge, preparation)
+            session_id: Session ID for conversation continuity (optional)
             
         Returns:
             Response from backend or None if error
@@ -84,6 +85,8 @@ class APIClient:
             request_data = {"question": question, "mode": mode}
             if top_k is not None:
                 request_data["top_k"] = top_k
+            if session_id is not None:
+                request_data["session_id"] = session_id
             
             # Make API request
             response = requests.post(
@@ -115,7 +118,7 @@ class APIClient:
             st.error(f"❌ Unexpected error: {str(e)}")
             return None
     
-    def query_documents_get(self, question: str, top_k: Optional[int] = None, mode: str = "knowledge") -> Optional[Dict[str, Any]]:
+    def query_documents_get(self, question: str, top_k: Optional[int] = None, mode: str = "knowledge", session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Query using GET method (alternative)
         
@@ -123,6 +126,7 @@ class APIClient:
             question: User's question
             top_k: Number of documents to retrieve
             mode: Query mode (simulation, knowledge, preparation)
+            session_id: Session ID for conversation continuity (optional)
             
         Returns:
             Response from backend or None if error
@@ -131,6 +135,8 @@ class APIClient:
             params = {"question": question, "mode": mode}
             if top_k is not None:
                 params["top_k"] = top_k
+            if session_id is not None:
+                params["session_id"] = session_id
             
             response = requests.get(
                 f"{self.backend_url}/api/query",

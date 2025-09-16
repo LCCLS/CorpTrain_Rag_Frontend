@@ -82,6 +82,8 @@ def initialize_session_state():
         st.session_state.user_email = None
     if "selected_mode" not in st.session_state:
         st.session_state.selected_mode = "knowledge"
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = None
 
 def is_valid_email(email):
     """Validate email format"""
@@ -176,6 +178,12 @@ def main():
         remaining_queries = 3 - st.session_state.query_count
         if not st.session_state.email_provided:
             st.info(f"📊 Free queries remaining: {remaining_queries}/3")
+        
+        # Show session status
+        if st.session_state.session_id:
+            st.success("🔗 Session Active")
+        else:
+            st.info("🆕 New Session")
     
     # Check if user has reached the limit
     if st.session_state.query_count >= 3 and not st.session_state.email_provided:
@@ -236,6 +244,18 @@ def main():
         
         st.divider()
         
+        # Session info
+        st.subheader("Session Info")
+        if st.session_state.session_id:
+            st.success("🔗 Active Session")
+            st.caption(f"ID: {st.session_state.session_id[:8]}...")
+            st.caption(f"Messages: {len(st.session_state.messages)}")
+        else:
+            st.info("🆕 No Active Session")
+            st.caption("Session will start with first message")
+        
+        st.divider()
+        
         # User info
         if st.session_state.email_provided:
             st.subheader("User Info")
@@ -250,6 +270,7 @@ def main():
             st.session_state.query_count = 0
             st.session_state.email_provided = False
             st.session_state.user_email = None
+            st.session_state.session_id = None  # Reset session
             st.rerun()
     
     # Display chat history
@@ -279,11 +300,16 @@ def main():
                     response = st.session_state.api_client.query_documents(
                         question=prompt,
                         top_k=5,
-                        mode=st.session_state.selected_mode
+                        mode=st.session_state.selected_mode,
+                        session_id=st.session_state.session_id
                     )
                     
                     if response:
                         st.markdown(response["answer"])
+                        
+                        # Extract and store session_id from response
+                        if response.get("session_id"):
+                            st.session_state.session_id = response["session_id"]
                         
                         # Show sources if available
                         if response.get("sources"):
@@ -301,6 +327,7 @@ def main():
                             "sources": response.get("sources", []),
                             "document_count": response.get("document_count", 0),
                             "retrieved_content": response.get("retrieved_content", []),
+                            "session_id": response.get("session_id"),
                             "timestamp": datetime.now()
                         }
                         st.session_state.messages.append(assistant_message)
