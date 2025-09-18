@@ -169,7 +169,6 @@ def main():
     with col1:
         mode_display = {
             "knowledge": "📚 Knowledge Mode",
-            "simulation": "🎭 Simulation Mode", 
             "preparation": "📋 Preparation Mode"
         }
         st.info(f"Current Mode: {mode_display.get(st.session_state.selected_mode, st.session_state.selected_mode)}")
@@ -219,7 +218,6 @@ def main():
         st.subheader("Query Mode")
         mode_options = {
             "Knowledge": "knowledge",
-            "Simulation": "simulation", 
             "Preparation": "preparation"
         }
         
@@ -236,7 +234,6 @@ def main():
         # Display mode description
         mode_descriptions = {
             "knowledge": "📚 **Knowledge Mode**: Direct answers based on training materials",
-            "simulation": "🎭 **Simulation Mode**: Practice scenarios and role-playing",
             "preparation": "📋 **Preparation Mode**: Structured preparation and planning"
         }
         

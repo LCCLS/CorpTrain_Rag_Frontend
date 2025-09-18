@@ -74,7 +74,7 @@ class APIClient:
         Args:
             question: User's question
             top_k: Number of documents to retrieve (optional)
-            mode: Query mode (simulation, knowledge, preparation)
+            mode: Query mode (knowledge, preparation)
             session_id: Session ID for conversation continuity (optional)
             
         Returns:
@@ -125,7 +125,7 @@ class APIClient:
         Args:
             question: User's question
             top_k: Number of documents to retrieve
-            mode: Query mode (simulation, knowledge, preparation)
+            mode: Query mode (knowledge, preparation)
             session_id: Session ID for conversation continuity (optional)
             
         Returns:
