@@ -72,6 +72,9 @@ def initialize_session_state():
     """Initialize Streamlit session state variables"""
     if "messages" not in st.session_state:
         st.session_state.messages = []
+        # Add welcome message
+        st.session_state.messages.append(create_welcome_message())
+    
     if "api_client" not in st.session_state:
         st.session_state.api_client = APIClient(settings.backend_url)
     if "query_count" not in st.session_state:
@@ -89,6 +92,36 @@ def is_valid_email(email):
     """Validate email format"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
+
+def create_welcome_message():
+    """Create the welcome message for new users"""
+    return {
+        "role": "assistant",
+        "content": """👋 **Welcome to the Corporate Training Assistant!**
+
+Thank you for being here! I'm your AI-powered training companion, designed to help you navigate and learn from your corporate training materials.
+
+## 🛠️ **Available Tools & Capabilities:**
+
+### 📚 **Knowledge Mode**
+- **Purpose**: Get direct, factual answers from your training materials
+- **Best for**: Quick lookups, specific questions, understanding concepts
+- **Example**: "What are the key principles of the Harvard Negotiation Method?"
+
+### 📋 **Preparation Mode** 
+- **Purpose**: Structured preparation and planning for training scenarios
+- **Best for**: Getting ready for meetings, creating action plans, organizing thoughts
+- **Example**: "Help me prepare for a difficult client negotiation"
+
+## 🚀 **How to Get Started:**
+1. **Choose your mode** using the dropdown in the sidebar
+2. **Ask any question** related to your training materials
+3. **Explore different approaches** by switching between modes
+
+I'm here to support your learning journey. What would you like to explore first?""",
+        "timestamp": datetime.now(),
+        "mode": "knowledge"
+    }
 
 def render_email_modal():
     """Render the email collection modal"""
@@ -264,6 +297,8 @@ def main():
         # Clear chat
         if st.button("🗑️ Clear Chat"):
             st.session_state.messages = []
+            # Re-add welcome message after clearing
+            st.session_state.messages.append(create_welcome_message())
             st.session_state.query_count = 0
             st.session_state.email_provided = False
             st.session_state.user_email = None
