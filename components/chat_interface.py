@@ -26,8 +26,8 @@ def render_chat_message(message: Dict[str, Any]):
                 # Show mode indicator if available
                 if message.get("mode"):
                     mode_display = {
-                        "knowledge": "📚 Knowledge Mode",
-                        "preparation": "📋 Preparation Mode"
+                        "knowledge": "📚 Wissensmodus",
+                        "preparation": "📋 Vorbereitungsmodus"
                     }
                     st.caption(f"Mode: {mode_display.get(message['mode'], message['mode'])}")
                 

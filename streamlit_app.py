@@ -72,8 +72,8 @@ def initialize_session_state():
     """Initialize Streamlit session state variables"""
     if "messages" not in st.session_state:
         st.session_state.messages = []
-        # Add welcome message
-        st.session_state.messages.append(create_welcome_message())
+        # Add welcome message based on current mode
+        st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
     
     if "api_client" not in st.session_state:
         st.session_state.api_client = APIClient(settings.backend_url)
@@ -93,35 +93,73 @@ def is_valid_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
-def create_welcome_message():
-    """Create the welcome message for new users"""
-    return {
-        "role": "assistant",
-        "content": """👋 **Welcome to the Corporate Training Assistant!**
+def create_welcome_message(mode="knowledge"):
+    """Create the welcome message for new users based on selected mode"""
+    
+    if mode == "knowledge":
+        return {
+            "role": "assistant",
+            "content": """👋 **Willkommen beim Corporate Training Assistant!**
 
-Thank you for being here! I'm your AI-powered training companion, designed to help you navigate and learn from your corporate training materials.
+Vielen Dank, dass Sie hier sind! Ich bin Ihr KI-gestützter Trainingsbegleiter, der Ihnen dabei hilft, sich in Ihren Unternehmensschulungsmaterialien zurechtzufinden und zu lernen.
 
-## 🛠️ **Available Tools & Capabilities:**
+## 📚 **Wissensmodus - Direkte Antworten**
 
-### 📚 **Knowledge Mode**
-- **Purpose**: Get direct, factual answers from your training materials
-- **Best for**: Quick lookups, specific questions, understanding concepts
-- **Example**: "What are the key principles of the Harvard Negotiation Method?"
+**Zweck**: Erhalten Sie direkte, sachliche Antworten aus Ihren Schulungsmaterialien
 
-### 📋 **Preparation Mode** 
-- **Purpose**: Structured preparation and planning for training scenarios
-- **Best for**: Getting ready for meetings, creating action plans, organizing thoughts
-- **Example**: "Help me prepare for a difficult client negotiation"
+**Ideal für**:
+- Schnelle Nachschlagen
+- Spezifische Fragen zu Konzepten
+- Verständnis von Methoden und Prinzipien
+- Faktenbasierte Informationen
 
-## 🚀 **How to Get Started:**
-1. **Choose your mode** using the dropdown in the sidebar
-2. **Ask any question** related to your training materials
-3. **Explore different approaches** by switching between modes
+**Beispiele**:
+- "Was sind die Grundprinzipien der Harvard-Verhandlungsmethode?"
+- "Wie funktioniert die Einwandbehandlung?"
+- "Welche Verhandlungstechniken gibt es?"
 
-I'm here to support your learning journey. What would you like to explore first?""",
-        "timestamp": datetime.now(),
-        "mode": "knowledge"
-    }
+**So nutzen Sie den Wissensmodus**:
+- Stellen Sie direkte Fragen zu Ihren Schulungsinhalten
+- Lassen Sie sich Konzepte erklären
+- Holen Sie sich spezifische Informationen
+
+Ich bin hier, um Ihr Lernen zu unterstützen. Was möchten Sie über Ihre Schulungsmaterialien erfahren?""",
+            "timestamp": datetime.now(),
+            "mode": "knowledge"
+        }
+    
+    elif mode == "preparation":
+        return {
+            "role": "assistant",
+            "content": """👋 **Willkommen beim Corporate Training Assistant!**
+
+Vielen Dank, dass Sie hier sind! Ich bin Ihr KI-gestützter Trainingsbegleiter, der Ihnen dabei hilft, sich strukturiert auf Trainingsszenarien vorzubereiten.
+
+## 📋 **Vorbereitungsmodus - Strukturierte Planung**
+
+**Zweck**: Strukturierte Vorbereitung und Planung für Trainingsszenarien
+
+**Ideal für**:
+- Vorbereitung auf schwierige Gespräche
+- Erstellung von Aktionsplänen
+- Organisation Ihrer Gedanken
+- Strategische Planung
+
+**Beispiele**:
+- "Helfen Sie mir bei der Vorbereitung auf ein schwieriges Kundengespräch"
+- "Erstellen Sie einen Plan für die nächste Verhandlung"
+- "Wie bereite ich mich auf ein Preisgespräch vor?"
+
+**So nutzen Sie den Vorbereitungsmodus**:
+- Beschreiben Sie Ihre Situation oder Ihr Ziel
+- Lassen Sie sich strukturierte Pläne erstellen
+- Holen Sie sich Schritt-für-Schritt-Anleitungen
+- Planen Sie Ihre Herangehensweise
+
+Ich bin hier, um Sie bei Ihrer Vorbereitung zu unterstützen. Wofür möchten Sie sich vorbereiten?""",
+            "timestamp": datetime.now(),
+            "mode": "preparation"
+        }
 
 def render_email_modal():
     """Render the email collection modal"""
@@ -201,8 +239,8 @@ def main():
     col1, col2 = st.columns([2, 1])
     with col1:
         mode_display = {
-            "knowledge": "📚 Knowledge Mode",
-            "preparation": "📋 Preparation Mode"
+            "knowledge": "📚 Wissensmodus",
+            "preparation": "📋 Vorbereitungsmodus"
         }
         st.info(f"Current Mode: {mode_display.get(st.session_state.selected_mode, st.session_state.selected_mode)}")
     
@@ -262,12 +300,24 @@ def main():
         )
         
         # Update session state with the selected mode value
+        previous_mode = st.session_state.selected_mode
         st.session_state.selected_mode = mode_options[selected_mode_display]
+        
+        # If mode changed, add a new welcome message for the new mode
+        if previous_mode != st.session_state.selected_mode and len(st.session_state.messages) > 0:
+            # Check if the last message was a welcome message (to avoid duplicates)
+            last_message = st.session_state.messages[-1]
+            if last_message.get("role") == "assistant" and "Willkommen" in last_message.get("content", ""):
+                # Replace the last welcome message with the new mode's welcome message
+                st.session_state.messages[-1] = create_welcome_message(st.session_state.selected_mode)
+            else:
+                # Add new welcome message for the new mode
+                st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
         
         # Display mode description
         mode_descriptions = {
-            "knowledge": "📚 **Knowledge Mode**: Direct answers based on training materials",
-            "preparation": "📋 **Preparation Mode**: Structured preparation and planning"
+            "knowledge": "📚 **Wissensmodus**: Direkte Antworten basierend auf Schulungsmaterialien",
+            "preparation": "📋 **Vorbereitungsmodus**: Strukturierte Vorbereitung und Planung"
         }
         
         st.info(mode_descriptions[st.session_state.selected_mode])
@@ -297,8 +347,8 @@ def main():
         # Clear chat
         if st.button("🗑️ Clear Chat"):
             st.session_state.messages = []
-            # Re-add welcome message after clearing
-            st.session_state.messages.append(create_welcome_message())
+            # Re-add welcome message after clearing based on current mode
+            st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
             st.session_state.query_count = 0
             st.session_state.email_provided = False
             st.session_state.user_email = None
