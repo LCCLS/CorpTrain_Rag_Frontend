@@ -70,10 +70,9 @@ st.markdown("""
 
 def initialize_session_state():
     """Initialize Streamlit session state variables"""
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        # Add welcome message based on current mode
-        st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
+    # Initialize selected_mode first
+    if "selected_mode" not in st.session_state:
+        st.session_state.selected_mode = "knowledge"
     
     if "api_client" not in st.session_state:
         st.session_state.api_client = APIClient(settings.backend_url)
@@ -83,10 +82,14 @@ def initialize_session_state():
         st.session_state.email_provided = False
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
-    if "selected_mode" not in st.session_state:
-        st.session_state.selected_mode = "knowledge"
     if "session_id" not in st.session_state:
         st.session_state.session_id = None
+    
+    # Initialize messages last, after selected_mode is set
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+        # Add welcome message based on current mode
+        st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
 
 def is_valid_email(email):
     """Validate email format"""
