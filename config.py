@@ -3,6 +3,10 @@ Frontend configuration
 """
 import os
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load local environment variables if available
+load_dotenv("local.env")
 
 class Settings:
     """Frontend configuration settings"""

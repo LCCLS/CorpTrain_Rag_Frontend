@@ -1,30 +1,30 @@
 """
 Streamlit RAG System Frontend
-ChatGPT-like interface for document Q&A
+Clean, minimalistic interface for document Q&A
 """
 import streamlit as st
 from datetime import datetime
 
 from config import settings
 from services.api_client import APIClient
-from components.chat_interface import render_chat_message, render_sources
+from components.chat_interface import render_chat_message, render_sources, render_streaming_message
 import re
 
 # Page configuration
 st.set_page_config(
     page_title="Corporate Training Assistant",
     page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# Simple dark theme CSS
+# Modern, clean CSS
 st.markdown("""
 <style>
     .main .block-container {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        max-width: 800px;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 900px;
     }
     
     .stChat > div {
@@ -32,39 +32,71 @@ st.markdown("""
     }
     
     .user-message {
-        background: #2d3748;
-        color: #ffffff;
-        padding: 1rem;
-        border-radius: 10px;
+        background: #f8fafc;
+        color: #1a202c;
+        padding: 1rem 1.5rem;
+        border-radius: 18px 18px 4px 18px;
         margin: 0.5rem 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
     
     .assistant-message {
-        background: #1a202c;
-        color: #e2e8f0;
-        padding: 1rem;
-        border-radius: 10px;
+        background: #ffffff;
+        color: #2d3748;
+        padding: 1rem 1.5rem;
+        border-radius: 18px 18px 18px 4px;
         margin: 0.5rem 0;
-        border-left: 3px solid #00d4aa;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
     
     .error-message {
-        background: #742a2a;
-        color: #ffffff;
-        padding: 1rem;
-        border-radius: 10px;
+        background: #fed7d7;
+        color: #742a2a;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
         margin: 0.5rem 0;
+        border: 1px solid #feb2b2;
     }
     
     .sources-container {
-        background: #2d3748;
-        padding: 0.5rem;
-        border-radius: 5px;
+        background: #f7fafc;
+        padding: 1rem;
+        border-radius: 12px;
         margin-top: 0.5rem;
-        border-left: 3px solid #00d4aa;
+        border: 1px solid #e2e8f0;
     }
     
-
+    .mode-selector {
+        background: #f7fafc;
+        padding: 1rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .header-container {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .status-healthy {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,31 +134,26 @@ def create_welcome_message(mode="knowledge"):
     if mode == "knowledge":
         return {
             "role": "assistant",
-            "content": """👋 **Willkommen beim Corporate Training Assistant!**
+            "content": """👋 **Willkommen zu Ihrem persönlichen Verhandlungs-Coach!**
 
-Vielen Dank, dass Sie hier sind! Ich bin Ihr KI-gestützter Trainingsbegleiter, der Ihnen dabei hilft, sich in Ihren Unternehmensschulungsmaterialien zurechtzufinden und zu lernen.
+**📚 Wissensmodus - Ihr Verhandlungs-Lexikon**
 
-## 📚 **Wissensmodus - Direkte Antworten**
+Haben Sie sich schon mal gefragt, warum manche Menschen in Verhandlungen immer das bekommen, was sie wollen? 
 
-**Zweck**: Erhalten Sie direkte, sachliche Antworten aus Ihren Schulungsmaterialien
+**Das Geheimnis liegt in der richtigen Vorbereitung und den richtigen Techniken.**
 
-**Ideal für**:
-- Schnelle Nachschlagen
-- Spezifische Fragen zu Konzepten
-- Verständnis von Methoden und Prinzipien
-- Faktenbasierte Informationen
+Hier können Sie:
+• **Verhandlungstechniken lernen** - Von der Harvard-Methode bis zu Körpersprache
+• **Strategien entdecken** - Wie Sie "Nein" in "Ja" verwandeln
+• **Taktiken verstehen** - Vom Bluff bis zur Win-Win-Lösung
+• **Sofort anwenden** - Praktische Tipps für Ihre nächste Verhandlung
 
-**Beispiele**:
-- "Was sind die Grundprinzipien der Harvard-Verhandlungsmethode?"
-- "Wie funktioniert die Einwandbehandlung?"
-- "Welche Verhandlungstechniken gibt es?"
+**Einfach fragen:**
+- "Wie verhandle ich erfolgreich?"
+- "Was mache ich bei einem Nein?"
+- "Wie erkenne ich Verhandlungstricks?"
 
-**So nutzen Sie den Wissensmodus**:
-- Stellen Sie direkte Fragen zu Ihren Schulungsinhalten
-- Lassen Sie sich Konzepte erklären
-- Holen Sie sich spezifische Informationen
-
-Ich bin hier, um Ihr Lernen zu unterstützen. Was möchten Sie über Ihre Schulungsmaterialien erfahren?""",
+*Ihr Erfolg in Verhandlungen beginnt mit dem richtigen Wissen!*""",
             "timestamp": datetime.now(),
             "mode": "knowledge"
         }
@@ -134,35 +161,59 @@ Ich bin hier, um Ihr Lernen zu unterstützen. Was möchten Sie über Ihre Schulu
     elif mode == "preparation":
         return {
             "role": "assistant",
-            "content": """👋 **Willkommen beim Corporate Training Assistant!**
+            "content": """👋 **Willkommen zu Ihrem persönlichen Verhandlungs-Coach!**
 
-Vielen Dank, dass Sie hier sind! Ich bin Ihr KI-gestützter Trainingsbegleiter, der Ihnen dabei hilft, sich strukturiert auf Trainingsszenarien vorzubereiten.
+---
 
-## 📋 **Vorbereitungsmodus - Strukturierte Planung**
+## 🤝 **Vorbereitungsmodus - Ihr Verhandlungs-Spezialist**
 
-**Zweck**: Strukturierte Vorbereitung und Planung für Trainingsszenarien
+**Stellen Sie sich vor:** Sie haben morgen ein wichtiges Gespräch - Gehaltsverhandlung, Vertragsabschluss, oder ein schwieriges Meeting. Sie wissen, dass die richtige Vorbereitung entscheidend ist, aber wo fangen Sie an?
 
-**Ideal für**:
-- Vorbereitung auf schwierige Gespräche
-- Erstellung von Aktionsplänen
-- Organisation Ihrer Gedanken
-- Strategische Planung
+**Das ist genau mein Job!** Ich führe Sie durch einen bewährten 4-Schritte-Prozess:
 
-**Beispiele**:
-- "Helfen Sie mir bei der Vorbereitung auf ein schwieriges Kundengespräch"
-- "Erstellen Sie einen Plan für die nächste Verhandlung"
-- "Wie bereite ich mich auf ein Preisgespräch vor?"
+---
 
-**So nutzen Sie den Vorbereitungsmodus**:
-- Beschreiben Sie Ihre Situation oder Ihr Ziel
-- Lassen Sie sich strukturierte Pläne erstellen
-- Holen Sie sich Schritt-für-Schritt-Anleitungen
-- Planen Sie Ihre Herangehensweise
+### **Der 4-Schritte-Prozess:**
 
-Ich bin hier, um Sie bei Ihrer Vorbereitung zu unterstützen. Wofür möchten Sie sich vorbereiten?""",
+**1. PRÄPARIEREN**
+- Ziele definieren
+- Informationen sammeln  
+- Strategie entwickeln
+
+**2. INFORMIEREN**
+- Die andere Seite verstehen
+- Bedürfnisse erkunden
+
+**3. VORSCHLAGEN**
+- Konkrete Angebote machen
+- Verhandeln
+
+**4. RESÜMIEREN**
+- Vereinbarungen festhalten
+- Abschließen
+
+---
+
+### 🎯 **Was Sie bekommen:**
+
+• **Strukturierte Vorbereitung** - Nichts wird vergessen  
+• **Professionelle Strategien** - Bewährte Methoden aus der Praxis  
+• **Persönliche Beratung** - Angepasst an Ihre Situation  
+• **Sofort umsetzbar** - Konkrete Schritte für Ihren Erfolg
+
+---
+
+### **Einfach beschreiben:**
+
+- "Ich verhandle morgen mein Gehalt"
+- "Ich habe ein wichtiges Vertragsgespräch"
+- "Ich muss ein schwieriges Meeting führen"
+
+**Lassen Sie uns gemeinsam Ihren Verhandlungserfolg vorbereiten!**""",
             "timestamp": datetime.now(),
             "mode": "preparation"
         }
+    
 
 def render_email_modal():
     """Render the email collection modal"""
@@ -235,71 +286,33 @@ def main():
     # Initialize session state
     initialize_session_state()
     
-    # Simple header
-    st.title("🤖 Corporate Training Assistant")
-    
-    # Show current mode and query counter in header
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        mode_display = {
-            "knowledge": "📚 Wissensmodus",
-            "preparation": "📋 Vorbereitungsmodus"
-        }
-        st.info(f"Current Mode: {mode_display.get(st.session_state.selected_mode, st.session_state.selected_mode)}")
-    
-    with col2:
-        remaining_queries = 3 - st.session_state.query_count
-        if not st.session_state.email_provided:
-            st.info(f"📊 Free queries remaining: {remaining_queries}/3")
-        
-        # Show session status
-        if st.session_state.session_id:
-            st.success("🔗 Session Active")
-        else:
-            st.info("🆕 New Session")
+    # Clean header
+    st.markdown("""
+    <div class="header-container">
+        <h1>🤖 Corporate Training Assistant</h1>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Check if user has reached the limit
     if st.session_state.query_count >= 3 and not st.session_state.email_provided:
         render_email_modal()
-        return  # Stop execution here to show the modal
+        return
     
-    # Simple sidebar with just essential controls
-    with st.sidebar:
-        st.header("Settings")
-        
-        # Backend status
-        st.subheader("Backend Status")
-        health = st.session_state.api_client.check_health()
-        
-        if health["status"] == "healthy":
-            st.success("✅ Backend connected")
-            if "data" in health:
-                data = health["data"]
-                st.info(f"📊 Documents: {data.get('database', {}).get('document_count', 0)}")
-        elif health["status"] == "unreachable":
-            st.error("❌ Cannot reach backend")
-            st.caption(f"URL: {st.session_state.api_client.backend_url}")
-        else:
-            st.warning("⚠️ Backend issues")
-            if "data" in health:
-                data = health["data"]
-                if data.get("database", {}).get("document_count", 0) == 0:
-                    st.info("💡 No documents loaded yet")
-        
-        st.divider()
-        
-        # Query Mode Selection
-        st.subheader("Query Mode")
+    # Mode selector - clean and simple
+    st.markdown('<div class="mode-selector">', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
         mode_options = {
-            "Knowledge": "knowledge",
-            "Preparation": "preparation"
+            "📚 Verhandlungs-Lexikon": "knowledge",
+            "🤝 Verhandlungs-Coach": "preparation"
         }
         
         selected_mode_display = st.selectbox(
-            "Select query mode:",
+            "Wählen Sie Ihren Modus:",
             options=list(mode_options.keys()),
             index=list(mode_options.values()).index(st.session_state.selected_mode),
-            help="Choose how the AI should respond to your questions"
+            help="Wählen Sie, wie der KI-Coach Ihnen helfen soll"
         )
         
         # Update session state with the selected mode value
@@ -316,47 +329,17 @@ def main():
             else:
                 # Add new welcome message for the new mode
                 st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
-        
-        # Display mode description
-        mode_descriptions = {
-            "knowledge": "📚 **Wissensmodus**: Direkte Antworten basierend auf Schulungsmaterialien",
-            "preparation": "📋 **Vorbereitungsmodus**: Strukturierte Vorbereitung und Planung"
-        }
-        
-        st.info(mode_descriptions[st.session_state.selected_mode])
-        
-        st.divider()
-        
-        # Session info
-        st.subheader("Session Info")
-        if st.session_state.session_id:
-            st.success("🔗 Active Session")
-            st.caption(f"ID: {st.session_state.session_id[:8]}...")
-            st.caption(f"Messages: {len(st.session_state.messages)}")
-        else:
-            st.info("🆕 No Active Session")
-            st.caption("Session will start with first message")
-        
-        st.divider()
-        
-        # User info
-        if st.session_state.email_provided:
-            st.subheader("User Info")
-            st.success(f"✅ {st.session_state.user_email}")
-            st.caption("Unlimited queries available")
-        
-        st.divider()
-        
-        # Clear chat
-        if st.button("🗑️ Clear Chat"):
-            st.session_state.messages = []
-            # Re-add welcome message after clearing based on current mode
-            st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
-            st.session_state.query_count = 0
-            st.session_state.email_provided = False
-            st.session_state.user_email = None
-            st.session_state.session_id = None  # Reset session
-            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Status indicator
+    health = st.session_state.api_client.check_health()
+    if health["status"] == "healthy":
+        st.markdown('<div class="status-indicator status-healthy">✅ Connected</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="status-indicator status-error">❌ Connection Error</div>', unsafe_allow_html=True)
+    
+    st.markdown("---")
     
     # Display chat history
     for message in st.session_state.messages:
@@ -378,50 +361,60 @@ def main():
         # Display user message
         render_chat_message(user_message)
         
-        # Generate response
+        # Generate response based on mode
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                try:
-                    response = st.session_state.api_client.query_documents(
-                        question=prompt,
-                        top_k=5,
-                        mode=st.session_state.selected_mode,
-                        session_id=st.session_state.session_id
-                    )
+            try:
+                # Handle modes (knowledge, preparation) with non-streaming
+                response = st.session_state.api_client.query_documents(
+                    question=prompt,
+                    top_k=5,
+                    mode=st.session_state.selected_mode,
+                    session_id=st.session_state.session_id
+                )
+                
+                if response:
+                    # Create assistant message from response
+                    assistant_message = {
+                        "role": "assistant",
+                        "content": response.get("answer", "No response received"),
+                        "timestamp": datetime.now(),
+                        "mode": st.session_state.selected_mode,
+                        "session_id": response.get("session_id", st.session_state.session_id)
+                    }
                     
-                    if response:
-                        st.markdown(response["answer"])
+                    # Display the response
+                    st.markdown(assistant_message["content"])
+                    
+                    # Extract and store session_id from response
+                    if assistant_message.get("session_id"):
+                        st.session_state.session_id = assistant_message["session_id"]
+                else:
+                    st.error("Failed to get response from backend")
+                    assistant_message = {
+                        "role": "assistant",
+                        "content": "Sorry, I couldn't process your request. Please try again.",
+                        "timestamp": datetime.now(),
+                        "mode": st.session_state.selected_mode
+                    }
+                
+                # Add to history
+                st.session_state.messages.append(assistant_message)
                         
-                        # Extract and store session_id from response
-                        if response.get("session_id"):
-                            st.session_state.session_id = response["session_id"]
-                        
-                        # Show sources if available
-                        if response.get("sources"):
-                            render_sources(
-                                response["sources"], 
-                                response.get("document_count", 0),
-                                response.get("retrieved_content", [])
-                            )
-                        
-                        # Add to history
-                        assistant_message = {
-                            "role": "assistant",
-                            "content": response["answer"],
-                            "mode": response.get("mode", st.session_state.selected_mode),
-                            "sources": response.get("sources", []),
-                            "document_count": response.get("document_count", 0),
-                            "retrieved_content": response.get("retrieved_content", []),
-                            "session_id": response.get("session_id"),
-                            "timestamp": datetime.now()
-                        }
-                        st.session_state.messages.append(assistant_message)
-                        
-                    else:
-                        st.error("Sorry, I couldn't process your question.")
-                        
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+    
+    # Simple footer with clear button
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
+            st.session_state.query_count = 0
+            st.session_state.email_provided = False
+            st.session_state.user_email = None
+            st.session_state.session_id = None
+            st.rerun()
 
 if __name__ == "__main__":
     main()

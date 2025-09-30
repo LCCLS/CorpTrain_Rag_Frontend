@@ -3,8 +3,9 @@ API client for communicating with the RAG backend
 """
 import requests
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Generator
 import streamlit as st
+import json
 
 from config import settings
 
@@ -153,3 +154,60 @@ class APIClient:
         except Exception as e:
             logger.error(f"GET Query error: {e}")
             return None
+    
+    def query_documents_stream(self, question: str, top_k: Optional[int] = None, mode: str = "knowledge", session_id: Optional[str] = None) -> Generator[Dict[str, Any], None, None]:
+        """
+        Query the RAG system with streaming response
+        
+        Args:
+            question: User's question
+            top_k: Number of documents to retrieve (optional)
+            mode: Query mode (knowledge, preparation)
+            session_id: Session ID for conversation continuity (optional)
+            
+        Yields:
+            Dict with streaming data chunks
+        """
+        try:
+            # Prepare request data
+            request_data = {"question": question, "mode": mode}
+            if top_k is not None:
+                request_data["top_k"] = top_k
+            if session_id is not None:
+                request_data["session_id"] = session_id
+            
+            # Make streaming API request
+            response = requests.post(
+                f"{self.backend_url}/api/query/stream",
+                json=request_data,
+                timeout=self.timeout,
+                headers={"Content-Type": "application/json"},
+                stream=True
+            )
+            
+            if response.status_code == 200:
+                # Process streaming response
+                for line in response.iter_lines(decode_unicode=True):
+                    if line.startswith('data: '):
+                        try:
+                            data = json.loads(line[6:])  # Remove 'data: ' prefix
+                            yield data
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse streaming data: {line}")
+                            continue
+            else:
+                logger.error(f"Streaming query failed: HTTP {response.status_code} - {response.text}")
+                yield {"type": "error", "content": f"Backend error: {response.status_code}"}
+                
+        except requests.exceptions.ConnectionError:
+            logger.error("Cannot connect to backend for streaming")
+            yield {"type": "error", "content": "❌ Cannot connect to backend. Please check if the backend is running."}
+            
+        except requests.exceptions.Timeout:
+            logger.error("Streaming request timeout")
+            yield {"type": "error", "content": f"⏱️ Request timeout ({self.timeout}s). The backend might be overloaded."}
+            
+        except Exception as e:
+            logger.error(f"Unexpected streaming error: {e}")
+            yield {"type": "error", "content": f"❌ Unexpected error: {str(e)}"}
+    

@@ -3,8 +3,9 @@ Chat interface components
 """
 import streamlit as st
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Generator
 from utils.formatting import format_source_name
+import time
 
 def render_chat_message(message: Dict[str, Any]):
     """
@@ -75,6 +76,79 @@ def render_message_timestamp(timestamp: datetime):
     """
     formatted_time = timestamp.strftime("%H:%M")
     st.caption(f"🕐 {formatted_time}")
+
+def render_streaming_message(stream_generator: Generator[Dict[str, Any], None, None], mode: str = "knowledge") -> Dict[str, Any]:
+    """
+    Render a streaming message with real-time updates
+    
+    Args:
+        stream_generator: Generator yielding streaming data chunks
+        mode: Query mode for display
+        
+    Returns:
+        Final message dict with complete content and metadata
+    """
+    # Create a placeholder for the streaming message
+    message_placeholder = st.empty()
+    full_content = ""
+    sources = []
+    document_count = 0
+    session_id = None
+    
+    # Show mode indicator
+    if mode:
+        mode_display = {
+            "knowledge": "📚 Wissensmodus",
+            "preparation": "📋 Vorbereitungsmodus"
+        }
+        st.caption(f"Mode: {mode_display.get(mode, mode)}")
+    
+    # Create a container for the streaming content
+    with message_placeholder.container():
+        content_placeholder = st.empty()
+        
+        # Process streaming chunks
+        for chunk in stream_generator:
+            if chunk.get("type") == "chunk":
+                full_content += chunk.get("content", "")
+                # Update the content in real-time
+                content_placeholder.markdown(full_content)
+                time.sleep(0.01)  # Small delay for better visual effect
+                
+            elif chunk.get("type") == "complete":
+                # Extract metadata from completion signal
+                session_id = chunk.get("session_id")
+                sources = chunk.get("sources", [])
+                document_count = chunk.get("document_count", 0)
+                break
+                
+            elif chunk.get("type") == "error":
+                # Handle errors
+                error_content = chunk.get("content", "An error occurred")
+                content_placeholder.markdown(f'<div class="error-message">{error_content}</div>', 
+                                          unsafe_allow_html=True)
+                return {
+                    "role": "assistant",
+                    "content": error_content,
+                    "error": True,
+                    "timestamp": datetime.now(),
+                    "mode": mode
+                }
+    
+    # Show sources if available
+    if sources:
+        render_sources(sources, document_count)
+    
+    # Return the complete message
+    return {
+        "role": "assistant",
+        "content": full_content,
+        "mode": mode,
+        "sources": sources,
+        "document_count": document_count,
+        "session_id": session_id,
+        "timestamp": datetime.now()
+    }
 
 def clear_chat_history():
     """Clear all chat messages"""
