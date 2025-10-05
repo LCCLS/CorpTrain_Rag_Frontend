@@ -4,11 +4,15 @@ Clean, minimalistic interface for document Q&A
 """
 import streamlit as st
 from datetime import datetime
+import os
+import re
+import tempfile
+import requests
 
 from config import settings
 from services.api_client import APIClient
-from components.chat_interface import render_chat_message, render_sources, render_streaming_message
-import re
+from components.chat_interface import render_chat_message
+from streamlit_mic_recorder import mic_recorder
 
 # Page configuration
 st.set_page_config(
@@ -339,34 +343,100 @@ def main():
     else:
         st.markdown('<div class="status-indicator status-error">❌ Connection Error</div>', unsafe_allow_html=True)
     
+    # Sidebar with microphone for voice input
+    with st.sidebar:
+        st.markdown("### 🎤 Voice Input")
+        st.markdown("Record your message and it will be added to the chat.")
+        
+        audio = mic_recorder(
+            start_prompt="🎤 Record",
+            stop_prompt="⏹️ Stop",
+            just_once=False,
+            format="wav",
+            key="sidebar_recorder",
+        )
+        
+        # Track audio data to detect new recordings
+        if audio and audio.get("bytes"):
+            current_audio = audio["bytes"]
+            if "last_audio" not in st.session_state or st.session_state.last_audio != current_audio:
+                st.session_state.last_audio = current_audio
+                st.session_state.audio_processed = False
+
     st.markdown("---")
     
     # Display chat history
     for message in st.session_state.messages:
-        render_chat_message(message)
+        avatar = message.get("avatar", "🧑‍💻" if message["role"] == "user" else "🤖")
+        with st.chat_message(message["role"], avatar=avatar):
+            render_chat_message(message)
     
-    # Chat input
-    if prompt := st.chat_input("Ask your question..."):
-        # Increment query counter
-        st.session_state.query_count += 1
-        
-        # Add user message
-        user_message = {
+    # Simple chat input
+    if prompt := st.chat_input("Type your message here..."):
+        # Add user message to chat history
+        st.session_state.messages.append({
             "role": "user",
             "content": prompt,
-            "timestamp": datetime.now()
-        }
-        st.session_state.messages.append(user_message)
+            "time": datetime.now().strftime("%H:%M"),
+            "avatar": "🧑‍💻",
+        })
+        st.rerun()
+    
+    # Handle audio transcription from sidebar
+    if audio and audio.get("bytes") and not st.session_state.get("audio_processed", False):
+        with st.status("🎤 Transcribing…"):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+                tmp.write(audio["bytes"])
+                tmp.flush()
+                tmp_path = tmp.name
+
+            try:
+                with open(tmp_path, "rb") as f:
+                    files = {"file": ("clip.wav", f, "audio/wav")}
+                    resp = requests.post(
+                        f"{settings.backend_url}/api/transcribe",
+                        files=files,
+                        timeout=60
+                    )
+
+                if resp.ok:
+                    result = resp.json()
+                    text = (result.get("text") or "").strip()
+                    
+                    if text:
+                        st.success(f"✅ Transcribed: '{text}'")
+                        # Add transcribed text as user message
+                        st.session_state.messages.append({
+                            "role": "user",
+                            "content": text,
+                            "time": datetime.now().strftime("%H:%M"),
+                            "avatar": "🧑‍💻",
+                        })
+                    else:
+                        st.warning("⚠️ No speech detected in the audio")
+                else:
+                    st.error(f"❌ Transcription failed: HTTP {resp.status_code}")
+
+            except Exception as e:
+                st.error(f"❌ Transcription error: {str(e)}")
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except:
+                    pass
+
+        st.session_state.audio_processed = True
+        st.rerun()
+    
+    # Generate response for the latest user message
+    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+        user_message = st.session_state.messages[-1]
         
-        # Display user message
-        render_chat_message(user_message)
-        
-        # Generate response based on mode
         with st.chat_message("assistant"):
             try:
                 # Handle modes (knowledge, preparation) with non-streaming
                 response = st.session_state.api_client.query_documents(
-                    question=prompt,
+                    question=user_message["content"],
                     top_k=5,
                     mode=st.session_state.selected_mode,
                     session_id=st.session_state.session_id
@@ -377,7 +447,8 @@ def main():
                     assistant_message = {
                         "role": "assistant",
                         "content": response.get("answer", "No response received"),
-                        "timestamp": datetime.now(),
+                        "time": datetime.now().strftime("%H:%M"),
+                        "avatar": "🤖",
                         "mode": st.session_state.selected_mode,
                         "session_id": response.get("session_id", st.session_state.session_id)
                     }
@@ -393,7 +464,8 @@ def main():
                     assistant_message = {
                         "role": "assistant",
                         "content": "Sorry, I couldn't process your request. Please try again.",
-                        "timestamp": datetime.now(),
+                        "time": datetime.now().strftime("%H:%M"),
+                        "avatar": "🤖",
                         "mode": st.session_state.selected_mode
                     }
                 
