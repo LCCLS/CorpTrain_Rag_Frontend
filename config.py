@@ -12,7 +12,7 @@ class Settings:
     """Frontend configuration settings"""
     
     # Backend API configuration
-    backend_url: str = os.getenv("BACKEND_URL", "https://corptrainrag-production.up.railway.app")
+    backend_url: str = os.getenv("BACKEND_URL", "https://corptrainrag-production-576c.up.railway.app")
     
     # UI settings
     default_top_k: int = int(os.getenv("DEFAULT_TOP_K", "5"))
