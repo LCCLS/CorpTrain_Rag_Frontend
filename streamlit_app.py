@@ -432,56 +432,38 @@ def main():
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         user_message = st.session_state.messages[-1]
         
-        with st.chat_message("assistant"):
-            try:
-                # Use non-streaming for both modes (streaming is disabled on backend)
-                with st.spinner("🤖 AI is thinking..."):
-                    response = st.session_state.api_client.query_documents(
-                        question=user_message["content"],
-                        top_k=5,
-                        mode=st.session_state.selected_mode,
-                        session_id=st.session_state.session_id
-                    )
+        # Process user message without creating extra chat_message context
+        # (message will be rendered from session_state after being added)
+        try:
+            # Use non-streaming for both modes (streaming is disabled on backend)
+            with st.spinner("🤖 AI is thinking..."):
+                response = st.session_state.api_client.query_documents(
+                    question=user_message["content"],
+                    top_k=5,
+                    mode=st.session_state.selected_mode,
+                    session_id=st.session_state.session_id
+                )
+            
+            if response:
+                # Create assistant message from response
+                assistant_message = {
+                    "role": "assistant",
+                    "content": response.get("answer", "No response received"),
+                    "time": datetime.now().strftime("%H:%M"),
+                    "avatar": "🤖",
+                    "mode": st.session_state.selected_mode,
+                    "session_id": response.get("session_id", st.session_state.session_id)
+                }
                 
-                if response:
-                    # Create assistant message from response
-                    assistant_message = {
-                        "role": "assistant",
-                        "content": response.get("answer", "No response received"),
-                        "time": datetime.now().strftime("%H:%M"),
-                        "avatar": "🤖",
-                        "mode": st.session_state.selected_mode,
-                        "session_id": response.get("session_id", st.session_state.session_id)
-                    }
-                    
-                    # Display the response
-                    st.markdown(assistant_message["content"])
-                else:
-                    st.error("No response received from the system")
-                    return
-                
-                # Add the assistant message to session state
-                if 'assistant_message' in locals():
-                    st.session_state.messages.append(assistant_message)
-                    
-                    # Extract and store session_id from response
-                    if assistant_message.get("session_id"):
-                        st.session_state.session_id = assistant_message["session_id"]
-                else:
-                    st.error("Failed to get response from backend")
-                    assistant_message = {
-                        "role": "assistant",
-                        "content": "Sorry, I couldn't process your request. Please try again.",
-                        "time": datetime.now().strftime("%H:%M"),
-                        "avatar": "🤖",
-                        "mode": st.session_state.selected_mode
-                    }
-                
-                # Add to history
+                # Add to session state and update session_id
                 st.session_state.messages.append(assistant_message)
+                if assistant_message.get("session_id"):
+                    st.session_state.session_id = assistant_message["session_id"]
+            else:
+                st.error("No response received from the system")
                         
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
     
     # Simple footer with clear button
     st.markdown("---")
