@@ -434,75 +434,31 @@ def main():
         
         with st.chat_message("assistant"):
             try:
-                # Use streaming for preparation mode, non-streaming for knowledge mode
-                if st.session_state.selected_mode == "preparation":
-                    # Use streaming for preparation mode
-                    response_content = ""
-                    response_session_id = st.session_state.session_id
-                    
-                    # Create a placeholder for streaming content
-                    message_placeholder = st.empty()
-                    status_placeholder = st.empty()
-                    
-                    # Show streaming status
-                    status_placeholder.info("🤖 AI is thinking and responding...")
-                    
-                    # Stream the response
-                    for chunk in st.session_state.api_client.query_documents_stream(
-                        question=user_message["content"],
-                        top_k=5,
-                        mode=st.session_state.selected_mode,
-                        session_id=st.session_state.session_id
-                    ):
-                        if chunk.get("type") == "chunk":
-                            response_content += chunk.get("content", "")
-                            # Update the placeholder with current content and cursor
-                            message_placeholder.markdown(response_content + "▌")
-                        elif chunk.get("type") in ["done", "complete"]:
-                            # Clear status and final update without cursor
-                            status_placeholder.empty()
-                            message_placeholder.markdown(response_content)
-                            break
-                        elif chunk.get("type") == "error":
-                            status_placeholder.empty()
-                            st.error(f"Error: {chunk.get('content', 'Unknown error')}")
-                            return
-                    
-                    # Create assistant message from streamed response
-                    assistant_message = {
-                        "role": "assistant",
-                        "content": response_content,
-                        "time": datetime.now().strftime("%H:%M"),
-                        "avatar": "🤖",
-                        "mode": st.session_state.selected_mode,
-                        "session_id": response_session_id
-                    }
-                    
-                else:
-                    # Use non-streaming for knowledge mode
+                # Use non-streaming for both modes (streaming is disabled on backend)
+                with st.spinner("🤖 AI is thinking..."):
                     response = st.session_state.api_client.query_documents(
                         question=user_message["content"],
                         top_k=5,
                         mode=st.session_state.selected_mode,
                         session_id=st.session_state.session_id
                     )
+                
+                if response:
+                    # Create assistant message from response
+                    assistant_message = {
+                        "role": "assistant",
+                        "content": response.get("answer", "No response received"),
+                        "time": datetime.now().strftime("%H:%M"),
+                        "avatar": "🤖",
+                        "mode": st.session_state.selected_mode,
+                        "session_id": response.get("session_id", st.session_state.session_id)
+                    }
                     
-                    if response:
-                        # Create assistant message from response
-                        assistant_message = {
-                            "role": "assistant",
-                            "content": response.get("answer", "No response received"),
-                            "time": datetime.now().strftime("%H:%M"),
-                            "avatar": "🤖",
-                            "mode": st.session_state.selected_mode,
-                            "session_id": response.get("session_id", st.session_state.session_id)
-                        }
-                        
-                        # Display the response
-                        st.markdown(assistant_message["content"])
-                    else:
-                        st.error("No response received from the system")
-                        return
+                    # Display the response
+                    st.markdown(assistant_message["content"])
+                else:
+                    st.error("No response received from the system")
+                    return
                 
                 # Add the assistant message to session state
                 if 'assistant_message' in locals():
