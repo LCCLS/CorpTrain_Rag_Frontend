@@ -459,6 +459,9 @@ def main():
                 st.session_state.messages.append(assistant_message)
                 if assistant_message.get("session_id"):
                     st.session_state.session_id = assistant_message["session_id"]
+                
+                # Trigger rerun to display the new message
+                st.rerun()
             else:
                 st.error("No response received from the system")
                         
