@@ -452,7 +452,9 @@ def main():
                     "time": datetime.now().strftime("%H:%M"),
                     "avatar": "🤖",
                     "mode": st.session_state.selected_mode,
-                    "session_id": response.get("session_id", st.session_state.session_id)
+                    "session_id": response.get("session_id", st.session_state.session_id),
+                    "pdf_available": response.get("pdf_available", False),
+                    "pdf_download_url": response.get("pdf_download_url")
                 }
                 
                 # Add to session state and update session_id

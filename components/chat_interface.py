@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Dict, Any, List, Generator
 from utils.formatting import format_source_name
 import time
+import requests
+from config import settings
 
 def render_chat_message(message: Dict[str, Any]):
     """
@@ -33,6 +35,13 @@ def render_chat_message(message: Dict[str, Any]):
                     st.caption(f"Mode: {mode_display.get(message['mode'], message['mode'])}")
                 
                 st.markdown(message["content"])
+                
+                # Show PDF download button if available (preparation mode)
+                if message.get("pdf_available") and message.get("pdf_download_url"):
+                    render_pdf_download_button(
+                        message.get("pdf_download_url"),
+                        message.get("session_id", "preparation")
+                    )
                 
                 # Show sources if available
                 if message.get("sources"):
@@ -149,6 +158,71 @@ def render_streaming_message(stream_generator: Generator[Dict[str, Any], None, N
         "session_id": session_id,
         "timestamp": datetime.now()
     }
+
+def render_pdf_download_button(pdf_url: str, session_id: str):
+    """
+    Render PDF download button
+    
+    Args:
+        pdf_url: URL path to download the PDF
+        session_id: Session ID for the filename
+    """
+    st.markdown("---")
+    
+    # Create a nice container for the download section
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin: 1rem 0;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    ">
+        <h3 style="color: white; margin: 0 0 0.5rem 0;">📄 Ihre Verhandlungstabelle ist bereit!</h3>
+        <p style="color: #e2e8f0; margin: 0 0 1rem 0;">
+            Laden Sie Ihre personalisierte Schnellreferenz-Karte herunter
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        # Download button
+        if st.button(
+            "📥 PDF Herunterladen",
+            key=f"download_pdf_{session_id}",
+            type="primary",
+            use_container_width=True
+        ):
+            try:
+                # Make request to download PDF
+                download_url = f"{settings.backend_url}{pdf_url}"
+                response = requests.get(download_url, timeout=30)
+                
+                if response.status_code == 200:
+                    # Provide download link
+                    st.download_button(
+                        label="💾 Datei speichern",
+                        data=response.content,
+                        file_name=f"verhandlungsvorbereitung_{session_id}.pdf",
+                        mime="application/pdf",
+                        key=f"save_pdf_{session_id}",
+                        use_container_width=True
+                    )
+                    st.success("✅ PDF bereit zum Speichern!")
+                elif response.status_code == 404:
+                    st.error("❌ PDF nicht gefunden. Bitte vervollständigen Sie zuerst die Vorbereitung.")
+                else:
+                    st.error(f"❌ Download fehlgeschlagen: HTTP {response.status_code}")
+                    
+            except requests.exceptions.Timeout:
+                st.error("❌ Download-Zeitüberschreitung. Bitte versuchen Sie es erneut.")
+            except Exception as e:
+                st.error(f"❌ Fehler beim Download: {str(e)}")
+    
+    # Info about the PDF
+    st.info("💡 Die PDF enthält: Verhandlungsthemen, Ziele, Walk-Away-Points, wichtige Fragen und Ihre Verhandlungsstrategie")
 
 def clear_chat_history():
     """Clear all chat messages"""
