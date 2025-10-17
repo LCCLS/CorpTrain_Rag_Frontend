@@ -19,8 +19,8 @@ class Settings:
     default_top_k: int = int(os.getenv("DEFAULT_TOP_K", "5"))
     max_top_k: int = int(os.getenv("MAX_TOP_K", "20"))
     
-    # Timeouts
-    request_timeout: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
+    # Timeouts (increased for complex preparation mode operations)
+    request_timeout: int = int(os.getenv("REQUEST_TIMEOUT", "90"))
     
     # App settings
     app_title: str = os.getenv("APP_TITLE", "Corporate Training Assistant")
