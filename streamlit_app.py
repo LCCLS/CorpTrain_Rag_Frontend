@@ -697,10 +697,12 @@ def main():
                 try:
                     pdf_check_url = f"{settings.backend_url}/api/pdf/download/{session_id}"
                     import requests
-                    response = requests.head(pdf_check_url, timeout=2)
+                    # Use GET with stream=True to just check if it exists without downloading the whole PDF
+                    response = requests.get(pdf_check_url, timeout=2, stream=True)
                     
                     if response.status_code == 200:
                         pdf_available = True
+                        response.close()  # Close the connection without downloading
                         
                         st.markdown("""
                         <div style="
