@@ -823,14 +823,51 @@ def main():
         except Exception as e:
             st.error(f"Error: {str(e)}")
     
-    # Minimalistic footer with clear button
+    # Minimalistic footer with action buttons
     st.markdown("""
     <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #f1f5f9;">
     </div>
     """, unsafe_allow_html=True)
     
+    # Check if PDF is available from any message in the session
+    pdf_available = False
+    pdf_url = None
+    for msg in st.session_state.messages:
+        if msg.get("pdf_available") and msg.get("pdf_download_url"):
+            pdf_available = True
+            pdf_url = msg.get("pdf_download_url")
+            break
+    
     col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
+    
+    # PDF Download Button (left)
+    with col1:
+        if pdf_available and pdf_url:
+            if st.button("📄 Download PDF", use_container_width=True, type="primary"):
+                import requests
+                try:
+                    download_url = f"{settings.backend_url}{pdf_url}"
+                    response = requests.get(download_url, timeout=30)
+                    
+                    if response.status_code == 200:
+                        st.download_button(
+                            label="💾 Save PDF",
+                            data=response.content,
+                            file_name=f"verhandlungsvorbereitung_{st.session_state.session_id}.pdf",
+                            mime="application/pdf",
+                            key="save_pdf_fixed",
+                            use_container_width=True
+                        )
+                        st.success("✅ PDF ready!")
+                    else:
+                        st.error("❌ PDF not found")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        else:
+            st.button("📄 Download PDF", use_container_width=True, disabled=True, help="Complete the preparation to unlock")
+    
+    # Clear Button (right)
+    with col3:
         if st.button("Clear conversation", use_container_width=True, type="secondary"):
             st.session_state.messages = []
             st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
