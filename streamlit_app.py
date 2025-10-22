@@ -689,6 +689,53 @@ def main():
     # st.info("Debug: About to create sidebar")
     try:
         with st.sidebar:
+            # PDF Download Section - Check if PDF is available
+            session_id = st.session_state.get("session_id")
+            pdf_available = False
+            
+            if session_id:
+                try:
+                    pdf_check_url = f"{settings.backend_url}/api/pdf/download/{session_id}"
+                    import requests
+                    response = requests.head(pdf_check_url, timeout=2)
+                    
+                    if response.status_code == 200:
+                        pdf_available = True
+                        
+                        st.markdown("""
+                        <div style="
+                            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                            padding: 1rem;
+                            border-radius: 10px;
+                            margin-bottom: 1rem;
+                            text-align: center;
+                        ">
+                            <h4 style="color: white; margin: 0 0 0.5rem 0;">📄 PDF Bereit!</h4>
+                            <p style="color: rgba(255, 255, 255, 0.9); font-size: 0.85rem; margin: 0;">
+                                Ihre Vorbereitung ist fertig
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.markdown(f"""
+                        <a href="{pdf_check_url}" download style="
+                            display: block;
+                            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                            color: white;
+                            padding: 0.75rem 1rem;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            text-align: center;
+                            font-weight: 600;
+                            margin-bottom: 1.5rem;
+                            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+                        ">
+                            📥 PDF Herunterladen
+                        </a>
+                        """, unsafe_allow_html=True)
+                except:
+                    pass
+            
             st.markdown("### 🎤 Voice Input")
             st.markdown("Record your message and it will be added to the chat.")
             
