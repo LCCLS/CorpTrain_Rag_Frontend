@@ -329,15 +329,34 @@ def render_help_section():
 
 def render_pdf_download():
     """Render PDF download section if PDF is available"""
-    # Check if any message has pdf_available
-    pdf_info = None
-    if "messages" in st.session_state:
-        for message in reversed(st.session_state.messages):
-            if message.get("pdf_available") and message.get("pdf_download_url"):
-                pdf_info = message
-                break
+    import requests
     
-    if pdf_info:
+    # Check if we have an active session
+    session_id = st.session_state.get("session_id")
+    
+    # Try to check if PDF is available via backend
+    pdf_available = False
+    pdf_url = None
+    
+    if session_id:
+        try:
+            # Quick check: try to access the PDF download endpoint
+            pdf_check_url = f"{settings.backend_url}/api/pdf/download/{session_id}"
+            response = requests.head(pdf_check_url, timeout=2)
+            
+            if response.status_code == 200:
+                pdf_available = True
+                pdf_url = pdf_check_url
+        except:
+            # If check fails, fall back to checking messages
+            if "messages" in st.session_state:
+                for message in reversed(st.session_state.messages):
+                    if message.get("pdf_available") and message.get("pdf_download_url"):
+                        pdf_available = True
+                        pdf_url = f"{settings.backend_url}{message['pdf_download_url']}"
+                        break
+    
+    if pdf_available and pdf_url:
         st.markdown("""
         <div style="
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -355,7 +374,6 @@ def render_pdf_download():
         """, unsafe_allow_html=True)
         
         # Download button
-        pdf_url = f"{settings.backend_url}{pdf_info['pdf_download_url']}"
         st.markdown(f"""
         <a href="{pdf_url}" download style="
             display: block;
