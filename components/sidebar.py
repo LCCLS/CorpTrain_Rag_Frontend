@@ -32,6 +32,9 @@ def render_sidebar(api_client: APIClient):
         # System status
         render_system_status(api_client)
         
+        # PDF Download section
+        render_pdf_download()
+        
         # Query settings
         render_query_settings()
         
@@ -323,3 +326,51 @@ def render_help_section():
             st.markdown(f"**{key.replace('_', ' ').title()}:** {value}")
         
         st.markdown("</div>", unsafe_allow_html=True)
+
+def render_pdf_download():
+    """Render PDF download section if PDF is available"""
+    # Check if any message has pdf_available
+    pdf_info = None
+    if "messages" in st.session_state:
+        for message in reversed(st.session_state.messages):
+            if message.get("pdf_available") and message.get("pdf_download_url"):
+                pdf_info = message
+                break
+    
+    if pdf_info:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            margin-bottom: 1rem;
+            text-align: center;
+        ">
+            <h4 style="color: white; margin: 0 0 0.5rem 0;">📄 PDF Bereit!</h4>
+            <p style="color: rgba(255, 255, 255, 0.9); font-size: 0.85rem; margin: 0;">
+                Ihre Vorbereitung ist fertig
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Download button
+        pdf_url = f"{settings.backend_url}{pdf_info['pdf_download_url']}"
+        st.markdown(f"""
+        <a href="{pdf_url}" download style="
+            display: block;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+            transition: all 0.2s ease;
+        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)';" 
+           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)';">
+            📥 PDF Herunterladen
+        </a>
+        """, unsafe_allow_html=True)
