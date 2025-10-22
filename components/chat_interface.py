@@ -7,53 +7,68 @@ from typing import Dict, Any, List, Generator
 from utils.formatting import format_source_name
 import time
 import requests
+import markdown
 from config import settings
 
 def render_chat_message(message: Dict[str, Any]):
     """
-    Render a single chat message
+    Render a single chat message with modern minimalistic styling
     
     Args:
         message: Message dict with role, content, etc.
     """
     if message["role"] == "user":
-        with st.chat_message("user"):
-            st.markdown(message["content"])
+        st.markdown(f'<div class="user-message">{message["content"]}</div>', 
+                   unsafe_allow_html=True)
             
     elif message["role"] == "assistant":
-        with st.chat_message("assistant"):
-            if message.get("error"):
-                st.markdown(f'<div class="error-message">{message["content"]}</div>', 
-                          unsafe_allow_html=True)
-            else:
-                # Show mode indicator if available
-                if message.get("mode"):
-                    mode_display = {
-                        "knowledge": "📚 Wissensmodus",
-                        "preparation": "📋 Vorbereitungsmodus"
-                    }
-                    st.caption(f"Mode: {mode_display.get(message['mode'], message['mode'])}")
-                
-                st.markdown(message["content"])
-                
-                # Show PDF download button if available (preparation mode)
-                if message.get("pdf_available") and message.get("pdf_download_url"):
-                    render_pdf_download_button(
-                        message.get("pdf_download_url"),
-                        message.get("session_id", "preparation")
-                    )
-                
-                # Show sources if available
-                if message.get("sources"):
-                    render_sources(
-                        message["sources"], 
-                        message.get("document_count", 0),
-                        message.get("retrieved_content", [])
-                    )
+        if message.get("error"):
+            st.markdown(f'<div class="error-message">{message["content"]}</div>', 
+                      unsafe_allow_html=True)
+        else:
+            # Show mode indicator if available with subtle styling
+            if message.get("mode"):
+                mode_display = {
+                    "knowledge": "📚 Knowledge Mode",
+                    "preparation": "📋 Preparation Mode"
+                }
+                mode_text = mode_display.get(message['mode'], message['mode'])
+                st.markdown(f'<div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem; font-weight: 500;">{mode_text}</div>', 
+                           unsafe_allow_html=True)
+            
+            # Main message content with clean styling - same pattern as user message
+            # Convert markdown to HTML for proper rendering in styled div
+            try:
+                html_content = markdown.markdown(message["content"], extensions=['nl2br', 'tables', 'fenced_code'])
+                st.markdown(f'<div class="assistant-message">{html_content}</div>', 
+                           unsafe_allow_html=True)
+            except ImportError:
+                # Fallback if markdown library is not available
+                st.markdown(f'<div class="assistant-message">{message["content"]}</div>', 
+                           unsafe_allow_html=True)
+            except Exception:
+                # Fallback for any other errors
+                st.markdown(f'<div class="assistant-message">{message["content"]}</div>', 
+                           unsafe_allow_html=True)
+            
+            # Show PDF download button if available (preparation mode)
+            if message.get("pdf_available") and message.get("pdf_download_url"):
+                render_pdf_download_button(
+                    message.get("pdf_download_url"),
+                    message.get("session_id", "preparation")
+                )
+            
+            # Show sources if available
+            if message.get("sources"):
+                render_sources(
+                    message["sources"], 
+                    message.get("document_count", 0),
+                    message.get("retrieved_content", [])
+                )
 
 def render_sources(sources: List[str], document_count: int, retrieved_content: List[str] = None):
     """
-    Render source citations and retrieved content
+    Render source citations and retrieved content with minimalistic design
     
     Args:
         sources: List of source identifiers
@@ -61,10 +76,20 @@ def render_sources(sources: List[str], document_count: int, retrieved_content: L
         retrieved_content: List of retrieved text content (optional)
     """
     if sources:
-        with st.expander(f"📚 Sources ({document_count} documents)", expanded=False):
+        # Clean source expander with minimalistic styling
+        with st.expander(f"📚 Sources ({document_count})", expanded=False):
             for i, source in enumerate(sources, 1):
                 formatted_source = format_source_name(source)
-                st.markdown(f"**{i}.** {formatted_source}")
+                st.markdown(f"""
+                <div style="
+                    padding: 0.75rem 0;
+                    border-bottom: 1px solid #f1f5f9;
+                    font-size: 0.9rem;
+                    color: #475569;
+                ">
+                    <strong>{i}.</strong> {formatted_source}
+                </div>
+                """, unsafe_allow_html=True)
                 
                 # Show retrieved content if available
                 if retrieved_content and i <= len(retrieved_content):
@@ -73,8 +98,20 @@ def render_sources(sources: List[str], document_count: int, retrieved_content: L
                     if len(content) > 500:
                         content = content[:500] + "..."
                     
-                    with st.expander(f"📄 Content from {formatted_source}", expanded=False):
-                        st.text(content)
+                    with st.expander(f"View content from {formatted_source}", expanded=False):
+                        st.markdown(f"""
+                        <div style="
+                            font-size: 0.85rem;
+                            line-height: 1.5;
+                            color: #64748b;
+                            background: #f8fafc;
+                            padding: 1rem;
+                            border-radius: 8px;
+                            border-left: 3px solid #e2e8f0;
+                        ">
+                            {content}
+                        </div>
+                        """, unsafe_allow_html=True)
 
 def render_message_timestamp(timestamp: datetime):
     """
@@ -169,19 +206,28 @@ def render_pdf_download_button(pdf_url: str, session_id: str):
     """
     st.markdown("---")
     
-    # Create a nice container for the download section
+    # Minimalistic download section
     st.markdown("""
     <div style="
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
+        background: #f8fafc;
+        padding: 1.25rem;
+        border-radius: 16px;
         margin: 1rem 0;
         text-align: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
     ">
-        <h3 style="color: white; margin: 0 0 0.5rem 0;">📄 Ihre Verhandlungstabelle ist bereit!</h3>
-        <p style="color: #e2e8f0; margin: 0 0 1rem 0;">
-            Laden Sie Ihre personalisierte Schnellreferenz-Karte herunter
+        <h3 style="
+            color: #1e293b; 
+            margin: 0 0 0.5rem 0; 
+            font-size: 1.1rem;
+            font-weight: 600;
+        ">📄 Preparation summary ready</h3>
+        <p style="
+            color: #64748b; 
+            margin: 0 0 1rem 0;
+            font-size: 0.9rem;
+        ">
+            Download your personalized negotiation reference
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -190,7 +236,7 @@ def render_pdf_download_button(pdf_url: str, session_id: str):
     with col2:
         # Download button
         if st.button(
-            "📥 PDF Herunterladen",
+            "Download PDF",
             key=f"download_pdf_{session_id}",
             type="primary",
             use_container_width=True
@@ -198,7 +244,7 @@ def render_pdf_download_button(pdf_url: str, session_id: str):
             try:
                 # Make request to download PDF
                 download_url = f"{settings.backend_url}{pdf_url}"
-                response = requests.get(download_url, timeout=30)
+                response = requests.get(download_url, timeout=60)
                 
                 if response.status_code == 200:
                     # Provide download link

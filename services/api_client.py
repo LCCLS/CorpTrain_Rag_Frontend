@@ -82,8 +82,12 @@ class APIClient:
             Response from backend or None if error
         """
         try:
-            # Prepare request data
-            request_data = {"question": question, "mode": mode}
+            # Use the unified /api/query endpoint for all modes
+            endpoint = "/api/query"
+            request_data = {
+                "question": question,
+                "mode": mode
+            }
             if top_k is not None:
                 request_data["top_k"] = top_k
             if session_id is not None:
@@ -91,7 +95,7 @@ class APIClient:
             
             # Make API request
             response = requests.post(
-                f"{self.backend_url}/api/query",
+                f"{self.backend_url}{endpoint}",
                 json=request_data,
                 timeout=self.timeout,
                 headers={"Content-Type": "application/json"}
