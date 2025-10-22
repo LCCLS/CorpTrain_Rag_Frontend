@@ -721,6 +721,55 @@ def main():
     for message in st.session_state.messages:
         render_chat_message(message)
     
+    # Check if PDF is available in any message
+    pdf_info = None
+    for message in reversed(st.session_state.messages):
+        if message.get("pdf_available") and message.get("pdf_download_url"):
+            pdf_info = message
+            break
+    
+    # Display PDF download button if available
+    if pdf_info:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 1rem 1.5rem;
+            border-radius: 16px;
+            margin: 1.5rem 0;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            text-align: center;
+        ">
+            <div style="color: white; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">
+                📄 Ihre Verhandlungsvorbereitung ist bereit!
+            </div>
+            <div style="color: rgba(255, 255, 255, 0.9); font-size: 0.9rem;">
+                Laden Sie Ihre personalisierte PDF-Vorbereitung herunter
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Download button
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            pdf_url = f"{settings.backend_url}{pdf_info['pdf_download_url']}"
+            st.markdown(f"""
+            <a href="{pdf_url}" download style="
+                display: block;
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                padding: 0.75rem 1.5rem;
+                border-radius: 12px;
+                text-decoration: none;
+                text-align: center;
+                font-weight: 600;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+                transition: all 0.2s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)';" 
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)';">
+                📥 PDF Herunterladen
+            </a>
+            """, unsafe_allow_html=True)
+    
     # Debug: Show we're at chat input
     # st.info("Debug: About to show chat input")
     
@@ -823,51 +872,14 @@ def main():
         except Exception as e:
             st.error(f"Error: {str(e)}")
     
-    # Minimalistic footer with action buttons
+    # Minimalistic footer with clear button
     st.markdown("""
     <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #f1f5f9;">
     </div>
     """, unsafe_allow_html=True)
     
-    # Check if PDF is available from any message in the session
-    pdf_available = False
-    pdf_url = None
-    for msg in st.session_state.messages:
-        if msg.get("pdf_available") and msg.get("pdf_download_url"):
-            pdf_available = True
-            pdf_url = msg.get("pdf_download_url")
-            break
-    
     col1, col2, col3 = st.columns([1, 1, 1])
-    
-    # PDF Download Button (left)
-    with col1:
-        if pdf_available and pdf_url:
-            if st.button("📄 Download PDF", use_container_width=True, type="primary"):
-                import requests
-                try:
-                    download_url = f"{settings.backend_url}{pdf_url}"
-                    response = requests.get(download_url, timeout=30)
-                    
-                    if response.status_code == 200:
-                        st.download_button(
-                            label="💾 Save PDF",
-                            data=response.content,
-                            file_name=f"verhandlungsvorbereitung_{st.session_state.session_id}.pdf",
-                            mime="application/pdf",
-                            key="save_pdf_fixed",
-                            use_container_width=True
-                        )
-                        st.success("✅ PDF ready!")
-                    else:
-                        st.error("❌ PDF not found")
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-        else:
-            st.button("📄 Download PDF", use_container_width=True, disabled=True, help="Complete the preparation to unlock")
-    
-    # Clear Button (right)
-    with col3:
+    with col2:
         if st.button("Clear conversation", use_container_width=True, type="secondary"):
             st.session_state.messages = []
             st.session_state.messages.append(create_welcome_message(st.session_state.selected_mode))
