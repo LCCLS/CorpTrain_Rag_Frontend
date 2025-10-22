@@ -51,7 +51,13 @@ def render_chat_message(message: Dict[str, Any]):
                 st.markdown(f'<div class="assistant-message">{message["content"]}</div>', 
                            unsafe_allow_html=True)
             
-            # PDF download moved to fixed footer button
+            # Show PDF download button if available (preparation mode)
+            if message.get("pdf_available") and message.get("pdf_download_url"):
+                render_pdf_download_button(
+                    message.get("pdf_download_url"),
+                    message.get("session_id", "preparation")
+                )
+            
             # Show sources if available
             if message.get("sources"):
                 render_sources(
