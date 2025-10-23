@@ -35,6 +35,9 @@ def render_sidebar(api_client: APIClient):
         # PDF Download section
         render_pdf_download()
         
+        # Summary PDF Download section
+        render_summary_pdf_download()
+        
         # Query settings
         render_query_settings()
         
@@ -135,6 +138,72 @@ def render_system_status(api_client: APIClient):
                     ❌ <strong>Backend unhealthy:</strong> {error}
                 </div>
                 """, unsafe_allow_html=True)
+
+def render_summary_pdf_download():
+    """Render Summary PDF download section if Summary PDF is available"""
+    import requests
+    
+    # Check if we have an active session
+    session_id = st.session_state.get("session_id")
+    
+    # Try to check if Summary PDF is available via backend
+    summary_pdf_available = False
+    summary_pdf_url = None
+    
+    if session_id:
+        try:
+            # Quick check: try to access the Summary PDF download endpoint
+            summary_pdf_check_url = f"{settings.backend_url}/api/summary-pdf/download/{session_id}"
+            response = requests.head(summary_pdf_check_url, timeout=2)
+            
+            if response.status_code == 200:
+                summary_pdf_available = True
+                summary_pdf_url = summary_pdf_check_url
+        except:
+            # If check fails, fall back to checking messages
+            if "messages" in st.session_state:
+                for message in reversed(st.session_state.messages):
+                    if message.get("summary_pdf_available") and message.get("summary_pdf_download_url"):
+                        summary_pdf_available = True
+                        summary_pdf_url = f"{settings.backend_url}{message['summary_pdf_download_url']}"
+                        break
+    
+    if summary_pdf_available and summary_pdf_url:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            padding: 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            margin-bottom: 1rem;
+            text-align: center;
+        ">
+            <h4 style="color: white; margin: 0 0 0.5rem 0;">📋 Summary PDF Bereit!</h4>
+            <p style="color: rgba(255, 255, 255, 0.9); font-size: 0.85rem; margin: 0;">
+                Ihre Zusammenfassung ist fertig
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Download button
+        st.markdown(f"""
+        <a href="{summary_pdf_url}" download style="
+            display: block;
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+            transition: all 0.2s ease;
+        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)';" 
+           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(139, 92, 246, 0.3)';">
+            📥 Summary PDF Herunterladen
+        </a>
+        """, unsafe_allow_html=True)
 
 def render_query_settings():
     """Render query configuration settings with dark theme"""
