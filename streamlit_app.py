@@ -687,78 +687,12 @@ def main():
     
     # Sidebar with microphone for voice input
     # st.info("Debug: About to create sidebar")
-    try:
-        with st.sidebar:
-            # PDF Download Section - Check if PDF is available
-            session_id = st.session_state.get("session_id")
-            pdf_available = False
-            
-            if session_id:
-                try:
-                    pdf_check_url = f"{settings.backend_url}/api/pdf/download/{session_id}"
-                    import requests
-                    # Use GET with stream=True to just check if it exists without downloading the whole PDF
-                    response = requests.get(pdf_check_url, timeout=2, stream=True)
-                    
-                    if response.status_code == 200:
-                        pdf_available = True
-                        response.close()  # Close the connection without downloading
-                        
-                        st.markdown("""
-                        <div style="
-                            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                            padding: 1rem;
-                            border-radius: 10px;
-                            margin-bottom: 1rem;
-                            text-align: center;
-                        ">
-                            <h4 style="color: white; margin: 0 0 0.5rem 0;">📄 PDF Bereit!</h4>
-                            <p style="color: rgba(255, 255, 255, 0.9); font-size: 0.85rem; margin: 0;">
-                                Ihre Vorbereitung ist fertig
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        st.markdown(f"""
-                        <a href="{pdf_check_url}" download style="
-                            display: block;
-                            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                            color: white;
-                            padding: 0.75rem 1rem;
-                            border-radius: 8px;
-                            text-decoration: none;
-                            text-align: center;
-                            font-weight: 600;
-                            margin-bottom: 1.5rem;
-                            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-                        ">
-                            📥 PDF Herunterladen
-                        </a>
-                        """, unsafe_allow_html=True)
-                except:
-                    pass
-            
-            st.markdown("### 🎤 Voice Input")
-            st.markdown("Record your message and it will be added to the chat.")
-            
-            audio = mic_recorder(
-                start_prompt="🎤 Record",
-                stop_prompt="⏹️ Stop",
-                just_once=False,
-                format="wav",
-                key="sidebar_recorder",
-            )
-            
-            # Track audio data to detect new recordings
-            if audio and audio.get("bytes"):
-                current_audio = audio["bytes"]
-                if "last_audio" not in st.session_state or st.session_state.last_audio != current_audio:
-                    st.session_state.last_audio = current_audio
-                    st.session_state.audio_processed = False
-    except Exception as e:
-        # If sidebar fails, continue without it
-        audio = None
-        st.error(f"Sidebar error: {e}")
+    # Use the proper sidebar component with both PDF buttons
+    from components.sidebar import render_sidebar
+    render_sidebar(st.session_state.api_client)
+    
+    # Initialize audio variable for compatibility
+    audio = None
     
     # st.info("Debug: Sidebar complete, about to display messages")
     
@@ -767,57 +701,12 @@ def main():
     if "messages" not in st.session_state or not st.session_state.messages:
         st.session_state.messages = [create_welcome_message(st.session_state.selected_mode)]
     
-    for message in st.session_state.messages:
-        render_chat_message(message)
+    for i, message in enumerate(st.session_state.messages):
+        # Add message index to the message for unique keys
+        message_with_index = {**message, "message_index": i}
+        render_chat_message(message_with_index)
     
-    # Check if PDF is available in any message
-    pdf_info = None
-    for message in reversed(st.session_state.messages):
-        if message.get("pdf_available") and message.get("pdf_download_url"):
-            pdf_info = message
-            break
-    
-    # Display PDF download button if available
-    if pdf_info:
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            padding: 1rem 1.5rem;
-            border-radius: 16px;
-            margin: 1.5rem 0;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-            text-align: center;
-        ">
-            <div style="color: white; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">
-                📄 Ihre Verhandlungsvorbereitung ist bereit!
-            </div>
-            <div style="color: rgba(255, 255, 255, 0.9); font-size: 0.9rem;">
-                Laden Sie Ihre personalisierte PDF-Vorbereitung herunter
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Download button
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            pdf_url = f"{settings.backend_url}{pdf_info['pdf_download_url']}"
-            st.markdown(f"""
-            <a href="{pdf_url}" download style="
-                display: block;
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                color: white;
-                padding: 0.75rem 1.5rem;
-                border-radius: 12px;
-                text-decoration: none;
-                text-align: center;
-                font-weight: 600;
-                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-                transition: all 0.2s ease;
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)';" 
-               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)';">
-                📥 PDF Herunterladen
-            </a>
-            """, unsafe_allow_html=True)
+    # PDF download buttons are now handled in the sidebar only
     
     # Debug: Show we're at chat input
     # st.info("Debug: About to show chat input")
@@ -833,7 +722,7 @@ def main():
         })
         st.rerun()
     
-    # Handle audio transcription from sidebar
+    # Handle audio transcription from sidebar (legacy code - keeping for compatibility)
     if audio and audio.get("bytes") and not st.session_state.get("audio_processed", False):
         with st.status("🎤 Transcribing…"):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
@@ -905,7 +794,9 @@ def main():
                     "mode": st.session_state.selected_mode,
                     "session_id": response.get("session_id", st.session_state.session_id),
                     "pdf_available": response.get("pdf_available", False),
-                    "pdf_download_url": response.get("pdf_download_url")
+                    "pdf_download_url": response.get("pdf_download_url"),
+                    "summary_pdf_available": response.get("summary_pdf_available", False),
+                    "summary_pdf_download_url": response.get("summary_pdf_download_url")
                 }
                 
                 # Add to session state and update session_id

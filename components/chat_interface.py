@@ -51,12 +51,7 @@ def render_chat_message(message: Dict[str, Any]):
                 st.markdown(f'<div class="assistant-message">{message["content"]}</div>', 
                            unsafe_allow_html=True)
             
-            # Show PDF download button if available (preparation mode)
-            if message.get("pdf_available") and message.get("pdf_download_url"):
-                render_pdf_download_button(
-                    message.get("pdf_download_url"),
-                    message.get("session_id", "preparation")
-                )
+            # PDF download buttons are now handled in the sidebar only
             
             # Show sources if available
             if message.get("sources"):
@@ -196,13 +191,14 @@ def render_streaming_message(stream_generator: Generator[Dict[str, Any], None, N
         "timestamp": datetime.now()
     }
 
-def render_pdf_download_button(pdf_url: str, session_id: str):
+def render_pdf_download_button(pdf_url: str, session_id: str, message_index: int = 0):
     """
     Render PDF download button
     
     Args:
         pdf_url: URL path to download the PDF
         session_id: Session ID for the filename
+        message_index: Index of the message to make key unique
     """
     st.markdown("---")
     
@@ -237,7 +233,7 @@ def render_pdf_download_button(pdf_url: str, session_id: str):
         # Download button
         if st.button(
             "Download PDF",
-            key=f"download_pdf_{session_id}",
+            key=f"download_pdf_{session_id}_{message_index}",
             type="primary",
             use_container_width=True
         ):
