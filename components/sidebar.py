@@ -60,7 +60,7 @@ def render_transcription():
     from streamlit_mic_recorder import mic_recorder
     
     audio = mic_recorder(
-        start_prompt="🎤 Record",
+        start_prompt="🎤 Record (max 60s)",
         stop_prompt="⏹️ Stop",
         just_once=False,
         format="wav",

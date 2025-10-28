@@ -724,50 +724,62 @@ def main():
     
     # Handle audio transcription from sidebar mic recorder
     audio = st.session_state.get("sidebar_audio")
-    if audio and audio.get("bytes") and not st.session_state.get("audio_processed", False):
-        with st.status("🎤 Transcribing…"):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                tmp.write(audio["bytes"])
-                tmp.flush()
-                tmp_path = tmp.name
+    if audio and audio.get("bytes"):
+        current_audio = audio["bytes"]
+        
+        # Check if this is a new recording that hasn't been processed yet
+        if current_audio != st.session_state.get("last_processed_audio"):
+            # This is a new audio recording, process it
+            with st.status("🎤 Transcribing…"):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+                    tmp.write(audio["bytes"])
+                    tmp.flush()
+                    tmp_path = tmp.name
 
-            try:
-                with open(tmp_path, "rb") as f:
-                    files = {"file": ("clip.wav", f, "audio/wav")}
-                    resp = requests.post(
-                        f"{settings.backend_url}/api/transcribe",
-                        files=files,
-                        timeout=60
-                    )
-
-                if resp.ok:
-                    result = resp.json()
-                    text = (result.get("text") or "").strip()
-                    
-                    if text:
-                        st.success(f"✅ Transcribed: '{text}'")
-                        # Add transcribed text as user message
-                        st.session_state.messages.append({
-                            "role": "user",
-                            "content": text,
-                            "time": datetime.now().strftime("%H:%M"),
-                            "avatar": "🧑‍💻",
-                        })
-                    else:
-                        st.warning("⚠️ No speech detected in the audio")
-                else:
-                    st.error(f"❌ Transcription failed: HTTP {resp.status_code}")
-
-            except Exception as e:
-                st.error(f"❌ Transcription error: {str(e)}")
-            finally:
                 try:
-                    os.remove(tmp_path)
-                except:
-                    pass
+                    with open(tmp_path, "rb") as f:
+                        files = {"file": ("clip.wav", f, "audio/wav")}
+                        resp = requests.post(
+                            f"{settings.backend_url}/api/transcribe",
+                            files=files,
+                            timeout=60
+                        )
 
-        st.session_state.audio_processed = True
-        st.rerun()
+                    if resp.ok:
+                        result = resp.json()
+                        
+                        if "error" in result:
+                            error_msg = result.get("message", result.get("error", "Unknown error"))
+                            st.error(f"❌ Transcription error: {error_msg}")
+                        else:
+                            text = (result.get("text") or "").strip()
+                            
+                            if text:
+                                # DEBUG: Show full transcription length
+                                st.success(f"✅ Transcribed ({len(text)} chars): '{text[:100]}{'...' if len(text) > 100 else ''}'")
+                                # Add transcribed text as user message
+                                st.session_state.messages.append({
+                                    "role": "user",
+                                    "content": text,
+                                    "time": datetime.now().strftime("%H:%M"),
+                                    "avatar": "🧑‍💻",
+                                })
+                            else:
+                                st.warning("⚠️ No speech detected in the audio")
+                    else:
+                        st.error(f"❌ Transcription failed: HTTP {resp.status_code}")
+
+                except Exception as e:
+                    st.error(f"❌ Transcription error: {str(e)}")
+                finally:
+                    try:
+                        os.remove(tmp_path)
+                    except:
+                        pass
+
+            # Mark this audio as processed
+            st.session_state.last_processed_audio = current_audio
+            st.rerun()
     
     # Generate response for the latest user message
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
