@@ -25,9 +25,12 @@ def render_sidebar(api_client: APIClient):
             border-radius: 15px;
             border: 1px solid #00d4aa;
         ">
-            <h2 style="color: #00d4aa; margin: 0;">📄 Downloads</h2>
+            <h2 style="color: #00d4aa; margin: 0;">📄 Controls</h2>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Transcription section
+        render_transcription()
         
         # Table PDF Download section
         render_pdf_download()
@@ -36,7 +39,7 @@ def render_sidebar(api_client: APIClient):
         render_summary_pdf_download()
 
 def render_transcription():
-    """Render transcription button section"""
+    """Render transcription microphone for voice input"""
     st.markdown("""
     <div style="
         background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
@@ -48,61 +51,24 @@ def render_transcription():
     ">
         <h4 style="color: white; margin: 0 0 0.5rem 0;">🎤 Voice Input</h4>
         <p style="color: rgba(255, 255, 255, 0.9); font-size: 0.85rem; margin: 0;">
-            Transcribe audio to text
+            Record your message and it will be added to the chat
         </p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Audio file uploader
-    audio_file = st.file_uploader(
-        "Upload audio file",
-        type=['wav', 'mp3', 'm4a', 'ogg'],
-        help="Upload an audio file to transcribe",
-        key="audio_transcription_uploader"
+    # Add mic_recorder component
+    from streamlit_mic_recorder import mic_recorder
+    
+    audio = mic_recorder(
+        start_prompt="🎤 Record",
+        stop_prompt="⏹️ Stop",
+        just_once=False,
+        format="wav",
+        key="sidebar_recorder",
     )
     
-    if audio_file:
-        if st.button("📝 Transcribe", use_container_width=True):
-            import requests
-            import tempfile
-            import os
-            
-            with st.spinner("🎤 Transcribing audio..."):
-                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio_file.name.split('.')[-1]}") as tmp:
-                    tmp.write(audio_file.getvalue())
-                    tmp.flush()
-                    tmp_path = tmp.name
-                
-                try:
-                    with open(tmp_path, "rb") as f:
-                        files = {"file": (audio_file.name, f, f"audio/{audio_file.name.split('.')[-1]}")}
-                        resp = requests.post(
-                            f"{settings.backend_url}/api/transcribe",
-                            files=files,
-                            timeout=60
-                        )
-                    
-                    if resp.status_code == 200:
-                        result = resp.json()
-                        text = (result.get("text") or "").strip()
-                        
-                        if text:
-                            # Add transcribed text to session state so it gets picked up
-                            st.session_state.transcribed_text = text
-                            st.success(f"✅ Transcribed: '{text}'")
-                            st.rerun()
-                        else:
-                            st.warning("⚠️ No speech detected in the audio")
-                    else:
-                        st.error(f"❌ Transcription failed: HTTP {resp.status_code}")
-                    
-                except Exception as e:
-                    st.error(f"❌ Transcription error: {str(e)}")
-                finally:
-                    try:
-                        os.remove(tmp_path)
-                    except:
-                        pass
+    # Store audio in session state for processing in main app
+    st.session_state.sidebar_audio = audio
 
 def render_summary_pdf_download():
     """Render Summary PDF download section if Summary PDF is available"""

@@ -722,7 +722,8 @@ def main():
         })
         st.rerun()
     
-    # Handle audio transcription from sidebar (legacy code - keeping for compatibility)
+    # Handle audio transcription from sidebar mic recorder
+    audio = st.session_state.get("sidebar_audio")
     if audio and audio.get("bytes") and not st.session_state.get("audio_processed", False):
         with st.status("🎤 Transcribing…"):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
